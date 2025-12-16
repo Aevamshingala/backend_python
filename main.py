@@ -566,7 +566,7 @@ new sim card. bank calls. recovery agent. recycled number. government website is
 Now apply the same logic to this paragraph:
 {script.description}
 """
-    client = genai.Client()(api_key=GEMINI_API_KEY)
+    client = genai.Client(api_key=GEMINI_API_KEY)
     response = client.models.generate_content(
     model="gemini-2.5-flash",
     contents=prompt,
