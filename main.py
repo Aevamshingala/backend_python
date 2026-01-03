@@ -353,105 +353,87 @@ async def process_video_async(url, idx, start, end, subtitle_text=None):
 
 
 # ---------------------- MAIN VIDEO BUILDER ----------------------
-# async def create_cinematic_video(ordered_items, fps=24, music_url=None, subtitles=None):
-#     temp = []
-#     tasks=[]
-#     for idx,item in enumerate(ordered_items):
-#        if item.type == "image":
-#             ext = safe_extension(item.url) or ".jpg"
-#             img = os.path.join("temp_media", f"img_{idx}{ext}")
+async def create_cinematic_video(ordered_items, fps=24, music_url=None, subtitles=None):
+    temp = []
+    tasks=[]
+    for idx,item in enumerate(ordered_items):
+       if item.type == "image":
+            ext = safe_extension(item.url) or ".jpg"
+            img = os.path.join("temp_media", f"img_{idx}{ext}")
 
-#             if download_file(item.url, img):
-#                 t = asyncio.create_task(
-#                     process_image_async(
-#                         img,
-#                         idx,
-#                         subtitles.get(str(idx)) if subtitles else None,
-#                         item.duration,
-#                         fps
-#                     )
-#                 )
-#                 tasks.append((t, "image", img))
-#        else:
-#             subtitle_text = subtitles.get(str(idx)) if subtitles else None
-#             t = asyncio.create_task(
-#                 process_video_async(item.url, idx, item.start, item.end, subtitle_text)
-#             )
-#             tasks.append((t, "video", None))
-#     for task,typ,f in tasks:
-#         try:
-#             res=await task
-#             if res: temp.append(res)
-#             if typ=="image" and f: os.remove(f)
-#         except Exception as e:
-#             print("[ERR]",e)
+            if download_file(item.url, img):
+                t = asyncio.create_task(
+                    process_image_async(
+                        img,
+                        idx,
+                        subtitles.get(str(idx)) if subtitles else None,
+                        item.duration,
+                        fps
+                    )
+                )
+                tasks.append((t, "image", img))
+       else:
+            subtitle_text = subtitles.get(str(idx)) if subtitles else None
+            t = asyncio.create_task(
+                process_video_async(item.url, idx, item.start, item.end, subtitle_text)
+            )
+            tasks.append((t, "video", None))
+    for task,typ,f in tasks:
+        try:
+            res=await task
+            if res: temp.append(res)
+            if typ=="image" and f: os.remove(f)
+        except Exception as e:
+            print("[ERR]",e)
 
-#     if not temp: raise Exception("No valid media.")
+    if not temp: raise Exception("No valid media.")
 
-#     listfile=os.path.join("temp_media",f"concat_{uuid.uuid4()}.txt")
-#     with open(listfile,"w") as f:
-#         for p in temp: f.write(f"file '{os.path.abspath(p)}'\n")
+    listfile=os.path.join("temp_media",f"concat_{uuid.uuid4()}.txt")
+    with open(listfile,"w") as f:
+        for p in temp: f.write(f"file '{os.path.abspath(p)}'\n")
 
-#     merged=os.path.join("videos",f"merged_{uuid.uuid4()}.mp4")
-#     concat_mp4_list(listfile,merged)
+    merged=os.path.join("videos",f"merged_{uuid.uuid4()}.mp4")
+    concat_mp4_list(listfile,merged)
 
-#     final=os.path.join("videos",f"final_{uuid.uuid4()}.mp4")
-#     print("\n music url",music_url)
-#     if music_url:
-#             aud = os.path.join("temp_media", f"a_{uuid.uuid4()}.mp3")
-#             print("\n aud", aud)
+    final=os.path.join("videos",f"final_{uuid.uuid4()}.mp4")
+    print("\n music url",music_url)
+    if music_url:
+            aud = os.path.join("temp_media", f"a_{uuid.uuid4()}.mp3")
+            print("\n aud", aud)
 
-#             # ✅ Handle both local and online URLs
-#             if os.path.exists(music_url):
-#                 print("[INFO] Using local music file:", music_url)
-#                 shutil.copy(music_url, aud)
-#             else:
-#                 print("[INFO] Downloading music from URL:", music_url)
-#                 if not download_file(music_url, aud):
-#                     print("[WARN] Failed to fetch audio — proceeding without it.")
-#                     shutil.copy(merged, final)
-#                     return final
+            # ✅ Handle both local and online URLs
+            if os.path.exists(music_url):
+                print("[INFO] Using local music file:", music_url)
+                shutil.copy(music_url, aud)
+            else:
+                print("[INFO] Downloading music from URL:", music_url)
+                if not download_file(music_url, aud):
+                    print("[WARN] Failed to fetch audio — proceeding without it.")
+                    shutil.copy(merged, final)
+                    return final
 
-#             # ✅ Now safely mix audio into video
-#             mix_audio_into_video(merged, aud, final)
+            # ✅ Now safely mix audio into video
+            mix_audio_into_video(merged, aud, final)
 
-#             # Clean up
-#             try:
-#                 os.remove(aud)
-#             except:
-#                 pass
-#     else:
-#             shutil.copy(merged, final)
+            # Clean up
+            try:
+                os.remove(aud)
+            except:
+                pass
+    else:
+            shutil.copy(merged, final)
 
 
-#     return final
+    return final
 
 # ---------------------- ROUTES ----------------------
 import traceback
 @app.post("/create_video")
 async def create_video(req: VideoRequest):
     try:
-        # 1️⃣ Create the cinematic video
-        out = await create_cinematic_video(
-            req.items,
-            music_url=req.music_url,
-            subtitles=req.subtitles
-        )
-
-        # 2️⃣ Delete the temp_media folder AFTER final video is ready
-        try:
-            shutil.rmtree("temp_media", ignore_errors=True)
-            os.makedirs("temp_media", exist_ok=True)  # recreate empty folder
-            print("[INFO] temp_media folder cleared.")
-        except Exception as cleanup_err:
-            print("[WARN] Could not clear temp_media:", cleanup_err)
-
-        # 3️⃣ Return the video URL
-        return {
-            "status": "success",
-            "video_url": f"https://backendpython-production-ca1c.up.railway.app/{out.replace(os.sep, '/')}"
-        }
-
+        out = await create_cinematic_video(req.items, music_url=req.music_url, subtitles=req.subtitles)
+        os.remove(os.path.join("temp_media"))
+        return {"status": "success", "video_url": f"http://127.0.0.1:8000/{out.replace(os.sep, '/')}"}
     except Exception as e:
         traceback.print_exc()
         return {"status": "error", "message": str(e)}
@@ -605,249 +587,3 @@ Now apply the same logic to this paragraph:
     contents=prompt,
     )
     return {"response": response.text.strip()}
-
-
-
-# def process_image_from_url_sync(img_url, idx, subtitle_text, duration=4, fps=24):
-#     """
-#     Create a motion clip directly from an image URL — no download needed.
-#     """
-#     output_path = os.path.join("temp_media", f"img_{idx}.mp4")
-
-#     # Simple zoom-in effect + optional subtitles
-#     zoom_effect = (
-#         f"zoompan=z='zoom+0.001':d={duration*fps}:s=1920x1080,"
-#         f"scale=1920:1080:force_original_aspect_ratio=decrease,"
-#         f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black"
-#     )
-
-#     vf = zoom_effect
-#     if subtitle_text:
-#         vf += f",drawtext=text='{subtitle_text}':fontcolor=white:fontsize=48:borderw=2:x=(w-text_w)/2:y=h-100"
-
-#     cmd = [
-#         FFMPEG_BIN, "-y",
-#         "-loop", "1",
-#         "-i", img_url,     # 🧠 Use image URL directly
-#         "-t", str(duration),
-#         "-r", str(fps),
-#         "-vf", vf,
-#         "-pix_fmt", "yuv420p",
-#         "-c:v", "libx264",
-#         "-preset", "fast",
-#         "-crf", "23",
-#         "-movflags", "+faststart",
-#         output_path
-#     ]
-
-#     run_cmd(cmd)
-#     return output_path
-
-
-async def process_image_from_url_async(img_url, idx, subtitle_text, duration, fps):
-    loop = asyncio.get_event_loop()
-    with ThreadPoolExecutor() as pool:
-        return await loop.run_in_executor(
-            pool,
-            process_image_from_url_sync,
-            img_url,
-            idx,
-            subtitle_text,
-            duration,
-            fps
-        )
-
-
-# def process_video_from_url_sync(url, idx, start, end, subtitle_text=None):
-#     """
-#     Trim, scale, and subtitle a remote video directly from its URL — no download.
-#     """
-#     output_path = os.path.join("temp_media", f"vid_{idx}.mp4")
-
-#     vf = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black"
-#     if subtitle_text:
-#         vf += f",drawtext=text='{subtitle_text}':fontcolor=white:fontsize=48:borderw=2:x=(w-text_w)/2:y=h-100"
-
-#     cmd = [
-#         FFMPEG_BIN, "-y",
-#         "-ss", str(start),
-#         "-to", str(end),
-#         "-i", url,   # 🎯 Directly use video URL
-#         "-vf", vf,
-#         "-r", "24",
-#         "-pix_fmt", "yuv420p",
-#         "-c:v", "libx264",
-#         "-preset", "fast",
-#         "-crf", "23",
-#         "-c:a", "aac",
-#         "-b:a", "128k",
-#         "-movflags", "+faststart",
-#         output_path
-#     ]
-
-#     run_cmd(cmd)
-#     return output_path
-
-
-async def process_video_from_url_async(url, idx, start, end, subtitle_text=None):
-    loop = asyncio.get_event_loop()
-    with ThreadPoolExecutor() as pool:
-        return await loop.run_in_executor(
-            pool,
-            process_video_from_url_sync,
-            url,
-            idx,
-            start,
-            end,
-            subtitle_text
-        )
-
-async def create_cinematic_video(ordered_items, fps=24, music_url=None, subtitles=None):
-    temp = []
-    tasks = []
-
-    # 🧩 Create async tasks for each media item (image/video)
-    for idx, item in enumerate(ordered_items):
-        subtitle_text = subtitles.get(str(idx)) if subtitles else None
-
-        if item.type == "image":
-            t = asyncio.create_task(
-                process_image_from_url_async(
-                    item.url,
-                    idx,
-                    subtitle_text,
-                    item.duration,
-                    fps
-                )
-            )
-            tasks.append(t)
-        elif item.type == "video":
-            t = asyncio.create_task(
-                process_video_from_url_async(
-                    item.url,
-                    idx,
-                    item.start,
-                    item.end,
-                    subtitle_text
-                )
-            )
-            tasks.append(t)
-
-    # 🕒 Wait for all media clips to finish processing
-    for t in tasks:
-        try:
-            res = await t
-            if res:
-                temp.append(res)
-        except Exception as e:
-            print("[ERR]", e)
-
-    if not temp:
-        raise Exception("No valid media to process.")
-
-    # 🧩 Create FFmpeg concat list
-    listfile = os.path.join("temp_media", f"concat_{uuid.uuid4()}.txt")
-    with open(listfile, "w") as f:
-        for p in temp:
-            f.write(f"file '{os.path.abspath(p)}'\n")
-
-    # ⚙️ Merged video
-    merged = os.path.join("temp_media", f"merged_{uuid.uuid4()}.mp4")
-    concat_mp4_list(listfile, merged)
-
-    # ✅ Final video in /videos
-    final = os.path.join("videos", f"final_{uuid.uuid4()}.mp4")
-
-    # 🎵 Optional: add background music
-    if music_url:
-        aud = os.path.join("temp_media", f"a_{uuid.uuid4()}.mp3")
-        if os.path.exists(music_url):
-            shutil.copy(music_url, aud)
-            mix_audio_into_video(merged, aud, final)
-        else:
-            if download_file(music_url, aud):
-                mix_audio_into_video(merged, aud, final)
-            else:
-                print("[WARN] Could not download music; skipping music mix.")
-                shutil.copy(merged, final)
-    else:
-        shutil.copy(merged, final)
-
-    # ❌ No cleanup of temp files, leave everything for inspection
-    print(f"[✅] Final video ready and saved at: {final}")
-    return final
-
-
-
-def process_image_from_url_sync(img_url, idx, subtitle_text, duration=4, fps=24):
-    """
-    Create a motion clip directly from an image URL (no download needed).
-    FIXED: added -f image2 and proper input flags for remote URLs.
-    """
-    output_path = os.path.join("temp_media", f"img_{idx}.mp4")
-
-    zoom_effect = (
-        f"zoompan=z='zoom+0.001':d={int(duration * fps)}:s=1920x1080,"
-        f"scale=1920:1080:force_original_aspect_ratio=decrease,"
-        f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black"
-    )
-
-    vf = zoom_effect
-    if subtitle_text:
-        vf += f",drawtext=text='{subtitle_text}':fontcolor=white:fontsize=48:borderw=2:x=(w-text_w)/2:y=h-100"
-
-    cmd = [
-        FFMPEG_BIN, "-y",
-        "-f", "image2",                # ✅ ensures FFmpeg treats it as an image
-        "-thread_queue_size", "1024",  # ✅ allows buffering for remote URLs
-        "-i", img_url,
-        "-t", str(duration),
-        "-r", str(fps),
-        "-vf", vf,
-        "-pix_fmt", "yuv420p",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-movflags", "+faststart",
-        output_path
-    ]
-
-    run_cmd(cmd)
-    return output_path
-
-
-def process_video_from_url_sync(url, idx, start, end, subtitle_text=None):
-    """
-    Trim, scale, and subtitle a remote video directly from its URL.
-    FIXED: added -protocol_whitelist and timeout-safe settings.
-    """
-    output_path = os.path.join("temp_media", f"vid_{idx}.mp4")
-
-    vf = (
-        "scale=1920:1080:force_original_aspect_ratio=decrease,"
-        "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black"
-    )
-    if subtitle_text:
-        vf += f",drawtext=text='{subtitle_text}':fontcolor=white:fontsize=48:borderw=2:x=(w-text_w)/2:y=h-100"
-
-    cmd = [
-        FFMPEG_BIN, "-y",
-        "-ss", str(start),
-        "-to", str(end),
-        "-protocol_whitelist", "file,http,https,tcp,tls",  # ✅ allow HTTPS input
-        "-thread_queue_size", "2048",                      # ✅ handle network buffering
-        "-i", url,
-        "-vf", vf,
-        "-r", "24",
-        "-pix_fmt", "yuv420p",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-c:a", "aac",
-        "-b:a", "128k",
-        "-movflags", "+faststart",
-        output_path
-    ]
-
-    run_cmd(cmd)
-    return output_path
