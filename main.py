@@ -459,30 +459,47 @@ def proxy_video(url: str):
 
 @app.post("/upload_audio")
 async def upload_audio(file: UploadFile = File(...)):
-    ext = os.path.splitext(file.filename)[1] or ".mp3"
-    save_path = os.path.join("temp_media", f"{uuid.uuid4()}{ext}")
-
-    with open(save_path, "wb") as f:
-        f.write(await file.read())
-
-    print("[INFO] Audio uploaded:", save_path)
-
-    duration = 0.0
     try:
-        cmd = [
-            "ffprobe",
-            "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
-            save_path,
-        ]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        duration = float(result.stdout.strip())
+        ext = os.path.splitext(file.filename)[1] or ".mp3"
+        save_path = os.path.join("temp_media", f"{uuid.uuid4()}{ext}")
+
+        os.makedirs("temp_media", exist_ok=True)
+
+        with open(save_path, "wb") as f:
+            f.write(await file.read())
+
+        print("[INFO] Audio uploaded:", save_path)
+
+        duration = 0.0
+        try:
+            cmd = [
+                "ffprobe",
+                "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                save_path,
+            ]
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if result.stdout.strip():
+                duration = float(result.stdout.strip())
+            else:
+                print("[WARN] ffprobe returned no duration output.")
+        except Exception as e:
+            print("[WARN] Could not extract duration:", e)
+
+        return {
+            "status": "success",
+            "file_path": save_path,
+            "duration": duration,
+        }
+
     except Exception as e:
-        print("[WARN] Could not extract duration:", e)
-
-    return {"status": "success", "file_path": save_path, "duration": duration}
-
+        print("[ERROR] upload_audio failed:", e)
+        # 🔒 Always return JSON
+        return {
+            "status": "error",
+            "message": str(e),
+        }
 @app.post("/fetch_image")
 async def fetch_image_video(body: SentenceList):
     headers = {"Authorization": PEXELS_API_KEY}
