@@ -449,7 +449,7 @@ async def create_video(req: VideoRequest):
         # 3️⃣ Return the video URL
         return {
             "status": "success",
-            "video_url": f"http://127.0.0.1:8000/{out.replace(os.sep, '/')}"
+            "video_url": f"https://backendpython-production-ca1c.up.railway.app/{out.replace(os.sep, '/')}"
         }
 
     except Exception as e:
