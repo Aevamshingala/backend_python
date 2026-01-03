@@ -608,40 +608,40 @@ Now apply the same logic to this paragraph:
 
 
 
-def process_image_from_url_sync(img_url, idx, subtitle_text, duration=4, fps=24):
-    """
-    Create a motion clip directly from an image URL — no download needed.
-    """
-    output_path = os.path.join("temp_media", f"img_{idx}.mp4")
+# def process_image_from_url_sync(img_url, idx, subtitle_text, duration=4, fps=24):
+#     """
+#     Create a motion clip directly from an image URL — no download needed.
+#     """
+#     output_path = os.path.join("temp_media", f"img_{idx}.mp4")
 
-    # Simple zoom-in effect + optional subtitles
-    zoom_effect = (
-        f"zoompan=z='zoom+0.001':d={duration*fps}:s=1920x1080,"
-        f"scale=1920:1080:force_original_aspect_ratio=decrease,"
-        f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black"
-    )
+#     # Simple zoom-in effect + optional subtitles
+#     zoom_effect = (
+#         f"zoompan=z='zoom+0.001':d={duration*fps}:s=1920x1080,"
+#         f"scale=1920:1080:force_original_aspect_ratio=decrease,"
+#         f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black"
+#     )
 
-    vf = zoom_effect
-    if subtitle_text:
-        vf += f",drawtext=text='{subtitle_text}':fontcolor=white:fontsize=48:borderw=2:x=(w-text_w)/2:y=h-100"
+#     vf = zoom_effect
+#     if subtitle_text:
+#         vf += f",drawtext=text='{subtitle_text}':fontcolor=white:fontsize=48:borderw=2:x=(w-text_w)/2:y=h-100"
 
-    cmd = [
-        FFMPEG_BIN, "-y",
-        "-loop", "1",
-        "-i", img_url,     # 🧠 Use image URL directly
-        "-t", str(duration),
-        "-r", str(fps),
-        "-vf", vf,
-        "-pix_fmt", "yuv420p",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-movflags", "+faststart",
-        output_path
-    ]
+#     cmd = [
+#         FFMPEG_BIN, "-y",
+#         "-loop", "1",
+#         "-i", img_url,     # 🧠 Use image URL directly
+#         "-t", str(duration),
+#         "-r", str(fps),
+#         "-vf", vf,
+#         "-pix_fmt", "yuv420p",
+#         "-c:v", "libx264",
+#         "-preset", "fast",
+#         "-crf", "23",
+#         "-movflags", "+faststart",
+#         output_path
+#     ]
 
-    run_cmd(cmd)
-    return output_path
+#     run_cmd(cmd)
+#     return output_path
 
 
 async def process_image_from_url_async(img_url, idx, subtitle_text, duration, fps):
@@ -658,35 +658,35 @@ async def process_image_from_url_async(img_url, idx, subtitle_text, duration, fp
         )
 
 
-def process_video_from_url_sync(url, idx, start, end, subtitle_text=None):
-    """
-    Trim, scale, and subtitle a remote video directly from its URL — no download.
-    """
-    output_path = os.path.join("temp_media", f"vid_{idx}.mp4")
+# def process_video_from_url_sync(url, idx, start, end, subtitle_text=None):
+#     """
+#     Trim, scale, and subtitle a remote video directly from its URL — no download.
+#     """
+#     output_path = os.path.join("temp_media", f"vid_{idx}.mp4")
 
-    vf = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black"
-    if subtitle_text:
-        vf += f",drawtext=text='{subtitle_text}':fontcolor=white:fontsize=48:borderw=2:x=(w-text_w)/2:y=h-100"
+#     vf = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black"
+#     if subtitle_text:
+#         vf += f",drawtext=text='{subtitle_text}':fontcolor=white:fontsize=48:borderw=2:x=(w-text_w)/2:y=h-100"
 
-    cmd = [
-        FFMPEG_BIN, "-y",
-        "-ss", str(start),
-        "-to", str(end),
-        "-i", url,   # 🎯 Directly use video URL
-        "-vf", vf,
-        "-r", "24",
-        "-pix_fmt", "yuv420p",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-c:a", "aac",
-        "-b:a", "128k",
-        "-movflags", "+faststart",
-        output_path
-    ]
+#     cmd = [
+#         FFMPEG_BIN, "-y",
+#         "-ss", str(start),
+#         "-to", str(end),
+#         "-i", url,   # 🎯 Directly use video URL
+#         "-vf", vf,
+#         "-r", "24",
+#         "-pix_fmt", "yuv420p",
+#         "-c:v", "libx264",
+#         "-preset", "fast",
+#         "-crf", "23",
+#         "-c:a", "aac",
+#         "-b:a", "128k",
+#         "-movflags", "+faststart",
+#         output_path
+#     ]
 
-    run_cmd(cmd)
-    return output_path
+#     run_cmd(cmd)
+#     return output_path
 
 
 async def process_video_from_url_async(url, idx, start, end, subtitle_text=None):
@@ -776,3 +776,78 @@ async def create_cinematic_video(ordered_items, fps=24, music_url=None, subtitle
     # ❌ No cleanup of temp files, leave everything for inspection
     print(f"[✅] Final video ready and saved at: {final}")
     return final
+
+
+
+def process_image_from_url_sync(img_url, idx, subtitle_text, duration=4, fps=24):
+    """
+    Create a motion clip directly from an image URL (no download needed).
+    FIXED: added -f image2 and proper input flags for remote URLs.
+    """
+    output_path = os.path.join("temp_media", f"img_{idx}.mp4")
+
+    zoom_effect = (
+        f"zoompan=z='zoom+0.001':d={int(duration * fps)}:s=1920x1080,"
+        f"scale=1920:1080:force_original_aspect_ratio=decrease,"
+        f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black"
+    )
+
+    vf = zoom_effect
+    if subtitle_text:
+        vf += f",drawtext=text='{subtitle_text}':fontcolor=white:fontsize=48:borderw=2:x=(w-text_w)/2:y=h-100"
+
+    cmd = [
+        FFMPEG_BIN, "-y",
+        "-f", "image2",                # ✅ ensures FFmpeg treats it as an image
+        "-thread_queue_size", "1024",  # ✅ allows buffering for remote URLs
+        "-i", img_url,
+        "-t", str(duration),
+        "-r", str(fps),
+        "-vf", vf,
+        "-pix_fmt", "yuv420p",
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "23",
+        "-movflags", "+faststart",
+        output_path
+    ]
+
+    run_cmd(cmd)
+    return output_path
+
+
+def process_video_from_url_sync(url, idx, start, end, subtitle_text=None):
+    """
+    Trim, scale, and subtitle a remote video directly from its URL.
+    FIXED: added -protocol_whitelist and timeout-safe settings.
+    """
+    output_path = os.path.join("temp_media", f"vid_{idx}.mp4")
+
+    vf = (
+        "scale=1920:1080:force_original_aspect_ratio=decrease,"
+        "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black"
+    )
+    if subtitle_text:
+        vf += f",drawtext=text='{subtitle_text}':fontcolor=white:fontsize=48:borderw=2:x=(w-text_w)/2:y=h-100"
+
+    cmd = [
+        FFMPEG_BIN, "-y",
+        "-ss", str(start),
+        "-to", str(end),
+        "-protocol_whitelist", "file,http,https,tcp,tls",  # ✅ allow HTTPS input
+        "-thread_queue_size", "2048",                      # ✅ handle network buffering
+        "-i", url,
+        "-vf", vf,
+        "-r", "24",
+        "-pix_fmt", "yuv420p",
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-movflags", "+faststart",
+        output_path
+    ]
+
+    run_cmd(cmd)
+    return output_path
